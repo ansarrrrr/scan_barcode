@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Barcode Produk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            border: 2px dashed #0d6efd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <h2 class="mb-4 fw-bold text-primary">Barcode Scanner Produk</h2>
+                
+                <div id="reader" class="mb-4"></div>
+                
+                <div class="card shadow-sm p-4 text-start">
+                    <div class="mb-3">
+                        <label for="barcode-result" class="form-label fw-bold">Kode Barcode</label>
+                        <input type="text" id="barcode-result" class="form-control" readonly placeholder="Menunggu scan...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="product-name" class="form-label fw-bold">Nama Produk</label>
+                        <input type="text" id="product-name" class="form-control" placeholder="Nama produk akan muncul otomatis / isi manual">
+                    </div>
+
+                    <button class="btn btn-success w-100" onclick="simpanData()">Simpan Produk</button>
+                </div>
+
+                <div id="alert-msg" class="alert alert-success mt-3 d-none" role="alert"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <script>
+        // Simulasi database produk sederhana (Barcode Code : Nama Produk)
+        // Anda bisa mengganti atau menghubungkan bagian ini dengan database (MySQL/Laravel) nanti.
+        const databaseProduk = {
+            "8992741951114": "Kopi Kapal Api Mantap 165g",
+            "8999999042217": "Teh Botol Sosro 450ml",
+            "8992696404413": "Indomie Goreng Spesial",
+            "711844332112": "Susu Ultra Milk Cokelat 250ml"
+        };
+
+        // Fungsi yang berjalan saat barcode berhasil di-scan
+        function onScanSuccess(decodedText, decodedResult) {
+            // Tampilkan kode di input Barcode
+            document.getElementById('barcode-result').value = decodedText;
+            
+            // Cari nama produk di database simulasi
+            if (databaseProduk[decodedText]) {
+                document.getElementById('product-name').value = databaseProduk[decodedText];
+            } else {
+                // Jika tidak ada di database, biarkan user mengetik sendiri nama produk baru
+                document.getElementById('product-name').value = "";
+                document.getElementById('product-name').placeholder = "Produk baru! Silakan ketik nama produk";
+                document.getElementById('product-name').focus();
+            }
+        }
+
+        function onScanFailure(error) {
+            // Kita biarkan kosong agar tidak memenuhi log saat kamera sedang mencari barcode
+        }
+
+        // Menjalankan Scanner Kamera bawaan
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: { width: 250, height: 150 } }
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+        // Fungsi tombol simpan
+        function simpanData() {
+            const barcode = document.getElementById('barcode-result').value;
+            const nama = document.getElementById('product-name').value;
+
+            if(!barcode || !nama) {
+                alert('Scan barcode dan pastikan nama produk sudah terisi!');
+                return;
+            }
+
+            const alertMsg = document.getElementById('alert-msg');
+            alertMsg.innerText = `Berhasil disimpan: ${nama} (${barcode})`;
+            alertMsg.classList.remove('d-none');
+
+            // Reset Form setelah 3 detik
+            setTimeout(() => {
+                alertMsg.classList.add('d-none');
+                document.getElementById('barcode-result').value = "";
+                document.getElementById('product-name').value = "";
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
