@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode Barang + Harga Rupiah</title>
+    <title>Scanner Barcode Barang + Fitur Suara Beep</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -150,7 +150,33 @@
 <script>
     let activeBarcode = "";
 
-    // Fungsi Otomatis Mengubah Angka Menjadi Format Rupiah Berbintik (.) saat Diketik
+    // FUNGSI BARU: Menghasilkan suara Beep secara digital
+    function playBeepSound() {
+        try {
+            // Membuat Audio Context
+            let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let oscillator = audioCtx.createOscillator();
+            let gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            // Jenis suara (sine, square, sawtooth, triangle)
+            oscillator.type = 'sine'; 
+            // Frekuensi nada (800Hz terdengar seperti suara scanner kasir)
+            oscillator.frequency.value = 800; 
+            // Mengatur volume suara
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+
+            // Mulai suara dan hentikan dalam 0.15 detik (cepat/singkat)
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.15);
+        } catch (error) {
+            console.log("Gagal memutar audio: ", error);
+        }
+    }
+
+    // Otomatis Mengubah Angka Menjadi Format Rupiah Berbintik (.) saat Diketik
     const priceInput = document.getElementById('product-price');
     priceInput.addEventListener('input', function(e) {
         let numberString = this.value.replace(/[^,\d]/g, '').toString();
@@ -170,24 +196,30 @@
 
     // Fungsi otomatis saat scan berhasil
     function onScanSuccess(decodedText, decodedResult) {
-        activeBarcode = decodedText;
-        document.getElementById('barcode-result').value = decodedText;
-        
-        let savedData = localStorage.getItem('barang_data_v2');
-        let database = savedData ? JSON.parse(savedData) : {};
+        // CEK APAKAH BARCODE BARU ATAU BERBEDA DARI SEBELUMNYA AGAR SUARA TIDAK BEEP TERUS-MENERUS
+        if (activeBarcode !== decodedText) {
+            activeBarcode = decodedText;
+            
+            // Panggil fungsi suara beep di sini
+            playBeepSound(); 
 
-        // Jika barcode sudah terdaftar di database baru (v2)
-        if (database[decodedText]) {
-            document.getElementById('product-name').value = database[decodedText].nama;
-            document.getElementById('product-price').value = database[decodedText].harga;
-            document.getElementById('status-message').innerText = "Barang ditemukan di sistem!";
-            document.getElementById('status-message').style.color = "#0056b3";
-        } else {
-            document.getElementById('product-name').value = "";
-            document.getElementById('product-price').value = "";
-            document.getElementById('product-name').focus();
-            document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama & harga.";
-            document.getElementById('status-message').style.color = "#e67e22";
+            document.getElementById('barcode-result').value = decodedText;
+            
+            let savedData = localStorage.getItem('barang_data_v2');
+            let database = savedData ? JSON.parse(savedData) : {};
+
+            if (database[decodedText]) {
+                document.getElementById('product-name').value = database[decodedText].nama;
+                document.getElementById('product-price').value = database[decodedText].harga;
+                document.getElementById('status-message').innerText = "Barang ditemukan di sistem!";
+                document.getElementById('status-message').style.color = "#0056b3";
+            } else {
+                document.getElementById('product-name').value = "";
+                document.getElementById('product-price').value = "";
+                document.getElementById('product-name').focus();
+                document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama & harga.";
+                document.getElementById('status-message').style.color = "#e67e22";
+            }
         }
     }
 
@@ -239,7 +271,6 @@
         let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
 
-        // Menyimpan objek berisi nama dan harga ke dalam key barcode
         database[barcode] = {
             nama: namaBarang,
             harga: hargaBarang
@@ -252,12 +283,13 @@
         
         updateTable();
 
-        // Reset form input
+        // Reset form input dan reset activeBarcode agar bisa scan ulang barang yang sama
         setTimeout(() => {
             document.getElementById('barcode-result').value = "";
             document.getElementById('product-name').value = "";
             document.getElementById('product-price').value = "";
             document.getElementById('status-message').innerText = "";
+            activeBarcode = ""; 
         }, 1500);
     }
 
@@ -266,6 +298,7 @@
         if (confirm("Apakah Anda yakin ingin menghapus semua data barang?")) {
             localStorage.removeItem('barang_data_v2');
             updateTable();
+            activeBarcode = "";
         }
     }
 
