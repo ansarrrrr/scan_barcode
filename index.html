@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode Barang</title>
+    <title>Scanner Barcode Barang + Tabel Data</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -14,7 +14,7 @@
             color: #333;
         }
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             background: #fff;
             padding: 20px;
@@ -28,7 +28,7 @@
             overflow: hidden;
         }
         .form-group {
-            margin-top: 20px;
+            margin-top: 15px;
         }
         label {
             display: block;
@@ -62,6 +62,45 @@
             margin-top: 10px;
             font-style: italic;
             color: #666;
+            margin-bottom: 15px;
+        }
+        
+        /* Style Tabel */
+        .table-section {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+        .btn-clear {
+            background-color: #dc3545;
+            margin-top: 10px;
+            padding: 8px;
+            font-size: 14px;
+        }
+        .btn-clear:hover {
+            background-color: #c82333;
         }
     </style>
 </head>
@@ -83,30 +122,41 @@
     </div>
 
     <button id="save-btn" onclick="saveData()">Simpan Data Barang</button>
-    
     <div id="status-message" class="status"></div>
+
+    <div class="table-section">
+        <h3>Daftar Barang Tersimpan</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Kode Barcode</th>
+                    <th>Nama Barang</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                </tbody>
+        </table>
+        <button class="btn-clear" onclick="clearAllData()">Hapus Semua Data Tabel</button>
+    </div>
 </div>
 
 <script>
-    // Variabel global untuk menyimpan kode barcode yang aktif
     let activeBarcode = "";
 
-    // Fungsi yang otomatis berjalan saat barcode sukses ter-scan
+    // Fungsi otomatis saat scan berhasil
     function onScanSuccess(decodedText, decodedResult) {
         activeBarcode = decodedText;
         document.getElementById('barcode-result').value = decodedText;
         
-        // 4. Cek apakah barcode ini sudah pernah disimpan sebelumnya
         let savedData = localStorage.getItem('barang_data');
         let database = savedData ? JSON.parse(savedData) : {};
 
         if (database[decodedText]) {
-            // Jika barcode sudah terdaftar, langsung munculkan namanya
             document.getElementById('product-name').value = database[decodedText];
             document.getElementById('status-message').innerText = "Barang ditemukan di sistem!";
             document.getElementById('status-message').style.color = "#0056b3";
         } else {
-            // Jika barcode baru, kosongkan input nama barang agar bisa diisi
             document.getElementById('product-name').value = "";
             document.getElementById('product-name').focus();
             document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama barang.";
@@ -114,7 +164,32 @@
         }
     }
 
-    // Fungsi untuk menyimpan data ke LocalStorage
+    // Fungsi menampilkan data ke Tabel
+    function updateTable() {
+        let savedData = localStorage.getItem('barang_data');
+        let database = savedData ? JSON.parse(savedData) : {};
+        let tableBody = document.getElementById('table-body');
+        
+        tableBody.innerHTML = "";
+
+        let barcodes = Object.keys(database);
+
+        if (barcodes.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="3" class="no-data">Belum ada data barang disimpan.</td></tr>`;
+            return;
+        }
+
+        barcodes.forEach((barcode, index) => {
+            let row = `<tr>
+                <td>${index + 1}</td>
+                <td><strong>${barcode}</strong></td>
+                <td>${database[barcode]}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+    }
+
+    // Fungsi menyimpan data
     function saveData() {
         let barcode = document.getElementById('barcode-result').value;
         let namaBarang = document.getElementById('product-name').value;
@@ -128,32 +203,41 @@
             return;
         }
 
-        // Ambil database lama atau buat baru jika belum ada
         let savedData = localStorage.getItem('barang_data');
         let database = savedData ? JSON.parse(savedData) : {};
 
-        // Masukkan data baru (Format: { "KODE_BARCODE": "Nama Barang" })
         database[barcode] = namaBarang;
-
-        // Simpan kembali ke LocalStorage
         localStorage.setItem('barang_data', JSON.stringify(database));
 
         document.getElementById('status-message').innerText = "Data berhasil disimpan!";
         document.getElementById('status-message').style.color = "#28a745";
         
-        // Opsional: reset form setelah simpan jika ingin scan barang lain
+        updateTable();
+
+        // Reset form input
         setTimeout(() => {
             document.getElementById('barcode-result').value = "";
             document.getElementById('product-name').value = "";
             document.getElementById('status-message').innerText = "";
-        }, 2000);
+        }, 1500);
     }
 
-    // Menjalankan Kamera Scanner otomatis saat halaman dibuka
+    // Fungsi menghapus semua data
+    function clearAllData() {
+        if (confirm("Apakah Anda yakin ingin menghapus semua data barang?")) {
+            localStorage.removeItem('barang_data');
+            updateTable();
+        }
+    }
+
+    // Menjalankan Kamera Scanner
     let html5QrcodeScanner = new Html5QrcodeScanner(
         "reader", { fps: 10, qrbox: {width: 250, height: 150} }
     );
     html5QrcodeScanner.render(onScanSuccess);
+
+    // Load data tabel saat pertama kali file index.html dibuka
+    updateTable();
 </script>
 
 </body>
