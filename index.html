@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode Barang + Tabel Data</title>
+    <title>Scanner Barcode Barang + Harga Rupiah</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -14,7 +14,7 @@
             color: #333;
         }
         .container {
-            max-width: 700px;
+            max-width: 750px;
             margin: 0 auto;
             background: #fff;
             padding: 20px;
@@ -121,6 +121,11 @@
         <input type="text" id="product-name" placeholder="Masukkan nama barang...">
     </div>
 
+    <div class="form-group">
+        <label for="product-price">Harga Barang (Rp):</label>
+        <input type="text" id="product-price" placeholder="Contoh: 50.000">
+    </div>
+
     <button id="save-btn" onclick="saveData()">Simpan Data Barang</button>
     <div id="status-message" class="status"></div>
 
@@ -132,6 +137,7 @@
                     <th>No.</th>
                     <th>Kode Barcode</th>
                     <th>Nama Barang</th>
+                    <th>Harga</th>
                 </tr>
             </thead>
             <tbody id="table-body">
@@ -144,29 +150,50 @@
 <script>
     let activeBarcode = "";
 
+    // Fungsi Otomatis Mengubah Angka Menjadi Format Rupiah Berbintik (.) saat Diketik
+    const priceInput = document.getElementById('product-price');
+    priceInput.addEventListener('input', function(e) {
+        let numberString = this.value.replace(/[^,\d]/g, '').toString();
+        let split = numberString.split(',');
+        let sisa = split[0].length % 3;
+        let rupiah = split[0].substr(0, sisa);
+        let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+        if (ribuan) {
+            let separator = sisa ? '.' : '';
+            rupiah += separator + ribuan.join('.');
+        }
+
+        rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+        this.value = rupiah;
+    });
+
     // Fungsi otomatis saat scan berhasil
     function onScanSuccess(decodedText, decodedResult) {
         activeBarcode = decodedText;
         document.getElementById('barcode-result').value = decodedText;
         
-        let savedData = localStorage.getItem('barang_data');
+        let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
 
+        // Jika barcode sudah terdaftar di database baru (v2)
         if (database[decodedText]) {
-            document.getElementById('product-name').value = database[decodedText];
+            document.getElementById('product-name').value = database[decodedText].nama;
+            document.getElementById('product-price').value = database[decodedText].harga;
             document.getElementById('status-message').innerText = "Barang ditemukan di sistem!";
             document.getElementById('status-message').style.color = "#0056b3";
         } else {
             document.getElementById('product-name').value = "";
+            document.getElementById('product-price').value = "";
             document.getElementById('product-name').focus();
-            document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama barang.";
+            document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama & harga.";
             document.getElementById('status-message').style.color = "#e67e22";
         }
     }
 
     // Fungsi menampilkan data ke Tabel
     function updateTable() {
-        let savedData = localStorage.getItem('barang_data');
+        let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
         let tableBody = document.getElementById('table-body');
         
@@ -175,7 +202,7 @@
         let barcodes = Object.keys(database);
 
         if (barcodes.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="3" class="no-data">Belum ada data barang disimpan.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="4" class="no-data">Belum ada data barang disimpan.</td></tr>`;
             return;
         }
 
@@ -183,7 +210,8 @@
             let row = `<tr>
                 <td>${index + 1}</td>
                 <td><strong>${barcode}</strong></td>
-                <td>${database[barcode]}</td>
+                <td>${database[barcode].nama}</td>
+                <td>Rp ${database[barcode].harga}</td>
             </tr>`;
             tableBody.innerHTML += row;
         });
@@ -193,6 +221,7 @@
     function saveData() {
         let barcode = document.getElementById('barcode-result').value;
         let namaBarang = document.getElementById('product-name').value;
+        let hargaBarang = document.getElementById('product-price').value;
 
         if (!barcode) {
             alert("Silakan scan barcode terlebih dahulu!");
@@ -202,12 +231,21 @@
             alert("Nama barang tidak boleh kosong!");
             return;
         }
+        if (!hargaBarang.trim()) {
+            alert("Harga barang tidak boleh kosong!");
+            return;
+        }
 
-        let savedData = localStorage.getItem('barang_data');
+        let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
 
-        database[barcode] = namaBarang;
-        localStorage.setItem('barang_data', JSON.stringify(database));
+        // Menyimpan objek berisi nama dan harga ke dalam key barcode
+        database[barcode] = {
+            nama: namaBarang,
+            harga: hargaBarang
+        };
+        
+        localStorage.setItem('barang_data_v2', JSON.stringify(database));
 
         document.getElementById('status-message').innerText = "Data berhasil disimpan!";
         document.getElementById('status-message').style.color = "#28a745";
@@ -218,6 +256,7 @@
         setTimeout(() => {
             document.getElementById('barcode-result').value = "";
             document.getElementById('product-name').value = "";
+            document.getElementById('product-price').value = "";
             document.getElementById('status-message').innerText = "";
         }, 1500);
     }
@@ -225,7 +264,7 @@
     // Fungsi menghapus semua data
     function clearAllData() {
         if (confirm("Apakah Anda yakin ingin menghapus semua data barang?")) {
-            localStorage.removeItem('barang_data');
+            localStorage.removeItem('barang_data_v2');
             updateTable();
         }
     }
@@ -236,7 +275,7 @@
     );
     html5QrcodeScanner.render(onScanSuccess);
 
-    // Load data tabel saat pertama kali file index.html dibuka
+    // Load data tabel saat halaman dibuka
     updateTable();
 </script>
 
