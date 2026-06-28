@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode Barang + Download Excel</title>
+    <title>Scanner Barcode Barang + CSV Google Sheets</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -97,7 +97,7 @@
             font-style: italic;
         }
         
-        /* Style Group Tombol di Bawah Tabel */
+        /* Style Group Tombol */
         .action-buttons {
             margin-top: 15px;
             display: flex;
@@ -167,7 +167,7 @@
         </table>
         
         <div class="action-buttons">
-            <button class="btn-excel" onclick="downloadExcel()">📊 Download ke Excel</button>
+            <button class="btn-excel" onclick="downloadCSV()">📊 Download ke Excel/Sheets</button>
             <button class="btn-clear" onclick="clearAllData()">🗑️ Hapus Semua Data Tabel</button>
         </div>
     </div>
@@ -176,7 +176,7 @@
 <script>
     let activeBarcode = "";
 
-    // Fungsi Menghasilkan suara Beep secara digital
+    // Fungsi Suara Beep
     function playBeepSound() {
         try {
             let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -197,7 +197,7 @@
         }
     }
 
-    // Otomatis Mengubah Angka Menjadi Format Rupiah Berbintik (.) saat Diketik
+    // Format Rupiah
     const priceInput = document.getElementById('product-price');
     priceInput.addEventListener('input', function(e) {
         let numberString = this.value.replace(/[^,\d]/g, '').toString();
@@ -215,7 +215,7 @@
         this.value = rupiah;
     });
 
-    // Fungsi menampilkan pesan status
+    // Fungsi status pesan
     function showStatus(text, type) {
         const statusEl = document.getElementById('status-message');
         statusEl.innerText = text;
@@ -236,7 +236,7 @@
         }
     }
 
-    // Fungsi otomatis saat scan berhasil
+    // Fungsi scan sukses
     function onScanSuccess(decodedText, decodedResult) {
         if (activeBarcode !== decodedText) {
             activeBarcode = decodedText;
@@ -261,7 +261,7 @@
         }
     }
 
-    // Fungsi menampilkan data ke Tabel
+    // Tampilkan data ke tabel
     function updateTable() {
         let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
@@ -287,7 +287,7 @@
         });
     }
 
-    // Fungsi menyimpan data
+    // Simpan data barang
     function saveData() {
         let barcode = document.getElementById('barcode-result').value;
         let namaBarang = document.getElementById('product-name').value;
@@ -317,10 +317,8 @@
         localStorage.setItem('barang_data_v2', JSON.stringify(database));
 
         showStatus("Data berhasil disimpan!", "success");
-        
         updateTable();
 
-        // Reset form input
         setTimeout(() => {
             document.getElementById('barcode-result').value = "";
             document.getElementById('product-name').value = "";
@@ -330,58 +328,44 @@
         }, 2000);
     }
 
-    // FUNGSI BARU: Download Tabel HTML ke File Excel (.xls)
-    function downloadExcel() {
+    // PERBAIKAN: Fungsi Mengunduh Menggunakan Format CSV Asli yang Didukung Google Sheets Seluler
+    function downloadCSV() {
         let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
         
-        // Cek jika database kosong
         if (!savedData || Object.keys(database).length === 0) {
             alert("Tidak ada data untuk didownload!");
             return;
         }
 
-        // Mengambil elemen tabel berdasarkan ID
-        let table = document.getElementById("barang-table");
-        let htmlStr = table.outerHTML;
+        // Tentukan Header Kolom CSV (gunakan koma sebagai pemisah standar)
+        let csvContent = "No,Kode Barcode,Nama Barang,Harga\n";
 
-        // Gaya CSS agar format garis/border tabel tetap rapi saat dibuka di Excel
-        let style = `<style>
-            table { border-collapse: collapse; }
-            th, td { border: 1px solid #000000; padding: 5px; text-align: left; }
-            th { background-color: #f2f2f2; }
-        </style>`;
+        let barcodes = Object.keys(database);
+        barcodes.forEach((barcode, index) => {
+            // Bersihkan teks nama barang dari tanda koma agar struktur kolom tidak rusak saat dibaca Excel
+            let namaClean = database[barcode].nama.replace(/,/g, '');
+            let hargaClean = database[barcode].harga;
+            
+            // Tambahkan baris baru ke data CSV
+            csvContent += `${index + 1},${barcode},${namaClean},Rp ${hargaClean}\n`;
+        });
 
-        // Menggabungkan template data Excel dengan struktur tabel kita
-        let template = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-                <meta charset="UTF-8">
-                ${style}
-            </head>
-            <body>
-                <h2>Daftar Barang Tersimpan</h2>
-                ${htmlStr}
-            </body>
-            </html>`;
-
-        // Membuat file Blob bertipe Excel
-        let blob = new Blob([template], { type: "application/vnd.ms-excel" });
+        // Tambahkan BOM (Byte Order Mark) UTF-8 agar karakter simbol seperti 'Rp' atau tanda titik terbaca rapi di HP
+        let BOM = "\uFEFF";
+        let blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
         let url = URL.createObjectURL(blob);
 
-        // Membuat link download samaran di memori lalu mengekliknya otomatis
         let a = document.createElement("a");
         a.href = url;
-        
-        // Nama file Excel yang akan diunduh
-        a.download = "Daftar_Barang_Barcode.xls"; 
+        a.download = "Daftar_Barang_Barcode.csv"; // Nama ekstensi diubah menjadi .csv
         
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
     }
 
-    // Fungsi menghapus semua data
+    // Hapus Semua Data
     function clearAllData() {
         if (confirm("Apakah Anda yakin ingin menghapus semua data barang?")) {
             localStorage.removeItem('barang_data_v2');
@@ -391,13 +375,12 @@
         }
     }
 
-    // Menjalankan Kamera Scanner
+    // Jalankan pembaca barcode
     let html5QrcodeScanner = new Html5QrcodeScanner(
         "reader", { fps: 10, qrbox: {width: 250, height: 150} }
     );
     html5QrcodeScanner.render(onScanSuccess);
 
-    // Load data tabel saat halaman dibuka
     updateTable();
 </script>
 
