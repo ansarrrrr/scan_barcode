@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode Barang + Fitur Suara Beep</title>
+    <title>Scanner Barcode Barang + Status di Atas</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -58,11 +58,15 @@
         button:hover {
             background-color: #218838;
         }
+        
+        /* STYLE BARU: Desain Kotak Status Pesan */
         .status {
-            margin-top: 10px;
-            font-style: italic;
-            color: #666;
-            margin-bottom: 15px;
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 15px;
+            display: none; /* Tersembunyi di awal, muncul via JavaScript */
         }
         
         /* Style Tabel */
@@ -111,6 +115,8 @@
     
     <div id="reader"></div>
     
+    <div id="status-message" class="status"></div>
+
     <div class="form-group">
         <label for="barcode-result">Hasil Scan (Kode Barcode):</label>
         <input type="text" id="barcode-result" readonly placeholder="Scan barcode untuk mengisi...">
@@ -127,7 +133,6 @@
     </div>
 
     <button id="save-btn" onclick="saveData()">Simpan Data Barang</button>
-    <div id="status-message" class="status"></div>
 
     <div class="table-section">
         <h3>Daftar Barang Tersimpan</h3>
@@ -150,10 +155,9 @@
 <script>
     let activeBarcode = "";
 
-    // FUNGSI BARU: Menghasilkan suara Beep secara digital
+    // Fungsi Menghasilkan suara Beep secara digital
     function playBeepSound() {
         try {
-            // Membuat Audio Context
             let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             let oscillator = audioCtx.createOscillator();
             let gainNode = audioCtx.createGain();
@@ -161,14 +165,10 @@
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
 
-            // Jenis suara (sine, square, sawtooth, triangle)
             oscillator.type = 'sine'; 
-            // Frekuensi nada (800Hz terdengar seperti suara scanner kasir)
             oscillator.frequency.value = 800; 
-            // Mengatur volume suara
             gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
 
-            // Mulai suara dan hentikan dalam 0.15 detik (cepat/singkat)
             oscillator.start(audioCtx.currentTime);
             oscillator.stop(audioCtx.currentTime + 0.15);
         } catch (error) {
@@ -194,13 +194,32 @@
         this.value = rupiah;
     });
 
+    // Fungsi menampilkan pesan status dengan warna latar belakang yang sesuai
+    function showStatus(text, type) {
+        const statusEl = document.getElementById('status-message');
+        statusEl.innerText = text;
+        statusEl.style.display = 'block';
+
+        if (type === 'success') {
+            statusEl.style.backgroundColor = '#d4edda';
+            statusEl.style.color = '#155724';
+            statusEl.style.border = '1px solid #c3e6cb';
+        } else if (type === 'info') {
+            statusEl.style.backgroundColor = '#cce5ff';
+            statusEl.style.color = '#004085';
+            statusEl.style.border = '1px solid #b8daff';
+        } else if (type === 'warning') {
+            statusEl.style.backgroundColor = '#fff3cd';
+            statusEl.style.color = '#856404';
+            statusEl.style.border = '1px solid #ffeeba';
+        }
+    }
+
     // Fungsi otomatis saat scan berhasil
     function onScanSuccess(decodedText, decodedResult) {
-        // CEK APAKAH BARCODE BARU ATAU BERBEDA DARI SEBELUMNYA AGAR SUARA TIDAK BEEP TERUS-MENERUS
         if (activeBarcode !== decodedText) {
             activeBarcode = decodedText;
             
-            // Panggil fungsi suara beep di sini
             playBeepSound(); 
 
             document.getElementById('barcode-result').value = decodedText;
@@ -211,14 +230,12 @@
             if (database[decodedText]) {
                 document.getElementById('product-name').value = database[decodedText].nama;
                 document.getElementById('product-price').value = database[decodedText].harga;
-                document.getElementById('status-message').innerText = "Barang ditemukan di sistem!";
-                document.getElementById('status-message').style.color = "#0056b3";
+                showStatus("Barang ditemukan di sistem!", "info");
             } else {
                 document.getElementById('product-name').value = "";
                 document.getElementById('product-price').value = "";
                 document.getElementById('product-name').focus();
-                document.getElementById('status-message').innerText = "Barcode baru terdeteksi. Silakan input nama & harga.";
-                document.getElementById('status-message').style.color = "#e67e22";
+                showStatus("Barcode baru terdeteksi. Silakan input nama & harga.", "warning");
             }
         }
     }
@@ -278,19 +295,18 @@
         
         localStorage.setItem('barang_data_v2', JSON.stringify(database));
 
-        document.getElementById('status-message').innerText = "Data berhasil disimpan!";
-        document.getElementById('status-message').style.color = "#28a745";
+        showStatus("Data berhasil disimpan!", "success");
         
         updateTable();
 
-        // Reset form input dan reset activeBarcode agar bisa scan ulang barang yang sama
+        // Reset form input dan sembunyikan status setelah beberapa detik
         setTimeout(() => {
             document.getElementById('barcode-result').value = "";
             document.getElementById('product-name').value = "";
             document.getElementById('product-price').value = "";
-            document.getElementById('status-message').innerText = "";
+            document.getElementById('status-message').style.display = "none";
             activeBarcode = ""; 
-        }, 1500);
+        }, 2000);
     }
 
     // Fungsi menghapus semua data
@@ -298,6 +314,7 @@
         if (confirm("Apakah Anda yakin ingin menghapus semua data barang?")) {
             localStorage.removeItem('barang_data_v2');
             updateTable();
+            document.getElementById('status-message').style.display = "none";
             activeBarcode = "";
         }
     }
