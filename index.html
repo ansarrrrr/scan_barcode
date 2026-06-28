@@ -329,6 +329,8 @@
     }
 
     // PERBAIKAN: Fungsi Mengunduh Menggunakan Format CSV Asli yang Didukung Google Sheets Seluler
+    // PERBAIKAN: Fungsi Download CSV tanpa karakter aneh di Google Sheets
+    // PERBAIKAN: Fungsi Download CSV tanpa karakter aneh di Google Sheets
     function downloadCSV() {
         let savedData = localStorage.getItem('barang_data_v2');
         let database = savedData ? JSON.parse(savedData) : {};
@@ -338,27 +340,26 @@
             return;
         }
 
-        // Tentukan Header Kolom CSV (gunakan koma sebagai pemisah standar)
-        let csvContent = "No,Kode Barcode,Nama Barang,Harga\n";
+        // Gunakan titik koma (;) sebagai pemisah agar langsung rapi di Excel/Sheets tanpa BOM
+        let csvContent = "No;Kode Barcode;Nama Barang;Harga\n";
 
         let barcodes = Object.keys(database);
         barcodes.forEach((barcode, index) => {
-            // Bersihkan teks nama barang dari tanda koma agar struktur kolom tidak rusak saat dibaca Excel
-            let namaClean = database[barcode].nama.replace(/,/g, '');
+            // Bersihkan teks jika ada user yang tidak sengaja menginput tanda titik koma
+            let namaClean = database[barcode].nama.replace(/;/g, '');
             let hargaClean = database[barcode].harga;
             
-            // Tambahkan baris baru ke data CSV
-            csvContent += `${index + 1},${barcode},${namaClean},Rp ${hargaClean}\n`;
+            // Satukan data dengan pembatas titik koma
+            csvContent += `${index + 1};${barcode};${namaClean};Rp ${hargaClean}\n`;
         });
 
-        // Tambahkan BOM (Byte Order Mark) UTF-8 agar karakter simbol seperti 'Rp' atau tanda titik terbaca rapi di HP
-        let BOM = "\uFEFF";
-        let blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+        // Membuat blob langsung dari string teks murni tanpa kode penanda \uFEFF (BOM)
+        let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         let url = URL.createObjectURL(blob);
 
         let a = document.createElement("a");
         a.href = url;
-        a.download = "Daftar_Barang_Barcode.csv"; // Nama ekstensi diubah menjadi .csv
+        a.download = "Daftar_Barang_Barcode.csv";
         
         document.body.appendChild(a);
         a.click();
